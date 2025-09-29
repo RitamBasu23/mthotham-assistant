@@ -1,0 +1,59 @@
+# ---- Python ----
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+
+# ---- Virtual envs ----
+.venv/
+venv/
+
+# ---- OS / Editor junk ----
+.DS_Store
+.idea/
+.vscode/
+Thumbs.db
+
+# ---- Streamlit / Node cache ----
+node_modules/
+.streamlit/
+
+# ---- App secrets & environment ----
+# Never commit your Hugging Face token or secrets
+.env
+.env.*
+!.env.example
+.secrets.*
+*.pem
+*.key
+*.crt
+*.pfx
+*.p12
+*.enc
+
+# ---- Hugging Face caches / model weights ----
+.hf_home/
+.huggingface/
+huggingface/
+hf_cache/
+models/
+model_cache/
+cache/
+.cache/
+.cache/huggingface/
+cache/huggingface/
+
+# ---- Vector stores / indexes ----
+vectorstore/
+# If you want to track indexes, comment the above line
+
+# ---- Data dumps / outputs ----
+outputs/
+logs/
+tmp/
+*.log
+
+# ---- Notebook checkpoints ----
+.ipynb_checkpoints/
