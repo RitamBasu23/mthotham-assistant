@@ -2,24 +2,26 @@
 from typing import Dict, Any, Optional
 from datetime import datetime
 from zoneinfo import ZoneInfo
+import torch
+from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
 
 from langchain_community.vectorstores import Chroma
-from langchain_community.llms import HuggingFaceHub
+from langchain.llms import HuggingFacePipeline
 from langchain_core.prompts import PromptTemplate
 from langchain_core.runnables import RunnablePassthrough
 from langchain_core.output_parsers import StrOutputParser
-from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_community.embeddings import HuggingFaceEmbeddings
 
 from src.config import settings
 from src.prompts import SYSTEM_PRIMER, ANSWER_PROMPT
 from src.router import route_intent
 
 
-# --- Vector DB (Chroma) using HF embeddings ---
+# ---------------------------------------------------------------------
+# --- Vector DB (Chroma) using local HF embeddings ---
+# ---------------------------------------------------------------------
 def _get_vectordb() -> Chroma:
-    embeddings = HuggingFaceEmbeddings(
-        model_name="sentence-transformers/all-MiniLM-L6-v2"
-    )
+    embeddings = HuggingFaceEmbeddings(model_name=settings.embedding_model_name)
     return Chroma(
         persist_directory=settings.chroma_dir,
         embedding_function=embeddings,
@@ -27,17 +29,47 @@ def _get_vectordb() -> Chroma:
     )
 
 
-# --- LLM (Hugging Face Inference API) ---
-def _get_llm() -> HuggingFaceHub:
-    return HuggingFaceHub(
-        repo_id=settings.hf_model,
-        huggingfacehub_api_token=settings.hf_api_token,
-        model_kwargs={"temperature": 0.2, "max_new_tokens": 512},
+# ---------------------------------------------------------------------
+# --- Local LLM (TinyLlama via HuggingFacePipeline) ---
+# ---------------------------------------------------------------------
+def _get_llm() -> HuggingFacePipeline:
+    """
+    Load a local TinyLlama model using HuggingFace transformers.
+    No API token required. Uses GPU if available.
+    """
+    print(f"🔹 Loading model: {settings.llm_model_name} on device: {settings.device}")
+
+    tokenizer = AutoTokenizer.from_pretrained(settings.llm_model_name)
+    model = AutoModelForCausalLM.from_pretrained(
+        settings.llm_model_name,
+        torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
+        device_map="auto" if torch.cuda.is_available() else None,
     )
 
+    pipe = pipeline(
+        "text-generation",
+        model=model,
+        tokenizer=tokenizer,
+        max_new_tokens=512,
+        temperature=0.2,
+        do_sample=True,
+        pad_token_id=tokenizer.eos_token_id,
+        device=0 if torch.cuda.is_available() else -1,
+    )
 
+    return HuggingFacePipeline(pipeline=pipe)
+
+
+# ---------------------------------------------------------------------
+# --- Main RAG answer pipeline ---
+# ---------------------------------------------------------------------
 def answer(question: str, intent: Optional[str] = None) -> Dict[str, Any]:
-    """RAG answer: retrieve context from Chroma, generate via HF Inference."""
+    """
+    RAG answer generation:
+    1. Retrieve top documents from Chroma
+    2. Insert context into prompt
+    3. Generate grounded answer using TinyLlama
+    """
     final_intent = intent or route_intent(question)
 
     llm = _get_llm()
@@ -50,7 +82,7 @@ def answer(question: str, intent: Optional[str] = None) -> Dict[str, Any]:
         partial_variables={"system_primer": SYSTEM_PRIMER},
     )
 
-    # Pipe: (question) -> retrieve -> prompt -> llm -> text
+    # Pipeline: (question) -> retrieve -> prompt -> llm -> parse text
     chain = (
         {"context": retriever, "question": RunnablePassthrough()}
         | prompt
@@ -64,7 +96,7 @@ def answer(question: str, intent: Optional[str] = None) -> Dict[str, Any]:
         "ok": True,
         "question": question,
         "intent": final_intent,
-        "answer": output,
-        "model": settings.hf_model,
+        "answer": output.strip(),
+        "model": settings.llm_model_name,
         "time": datetime.now(ZoneInfo(settings.app_timezone)).isoformat(),
     }

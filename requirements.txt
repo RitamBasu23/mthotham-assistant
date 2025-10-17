@@ -1,34 +1,58 @@
+# ================================================
+# ✅ Core Framework
+# ================================================
 python-dotenv==1.0.1
 pydantic==2.9.2
 fastapi==0.115.0
 uvicorn[standard]==0.30.6
 httpx==0.27.2
 
-# LangChain + backends
+# ================================================
+# ✅ LangChain Core (Local RAG)
+# ================================================
 langchain==0.2.14
 langchain-community==0.2.12
 langchain-core==0.2.41
-langchain-openai==0.1.23
 langchain-text-splitters==0.2.2
 
-# Vector DB (local)
+# ================================================
+# ✅ Vector Store (Local)
+# ⚠️ FAISS may need to skip install on Apple Silicon
+# ================================================
 chromadb==0.5.5
-faiss-cpu==1.8.0.post1
+# faiss-cpu==1.8.0.post1   # ❗ Uncomment for Windows/Linux only
 
-# Parsing / ingest
+# ================================================
+# ✅ Machine Learning / NLP
+# ================================================
+# torch installs differently per platform:
+# - Windows/Linux: pip install torch torchvision torchaudio
+# - Mac M1/M2: pip install torch==2.2.2 --index-url https://download.pytorch.org/whl/cpu
+# This lets it fallback to CPU automatically if CUDA is unavailable.
+torch>=2.1.0
+transformers==4.44.2
+accelerate==0.33.0
+sentence-transformers==2.2.2
+
+# ================================================
+# ✅ Data Handling / Parsing
+# ================================================
 pandas==2.2.2
 beautifulsoup4==4.12.3
+numpy==1.26.4
 
-# Optional live tools (weather/search)
+# ================================================
+# ✅ Optional Tools (Weather / Search APIs)
+# ================================================
 openmeteo-requests==1.2.0
 requests-cache==1.2.1
 retry-requests==2.0.0
-numpy==1.26.4
 tavily-python==0.5.0
 
-# Tokenizer
-tiktoken==0.7.0
-
-# Local embeddings (HuggingFace)
-sentence-transformers==2.2.2
-torch>=2.0.0
+# ================================================
+# ✅ Notes
+# ================================================
+# ❌ Removed:
+# - langchain-openai → Not needed for TinyLlama
+# - tiktoken → OpenAI tokenizer only
+# ⚙️ If FAISS fails to build on macOS, rely on Chroma's default sqlite backend.
